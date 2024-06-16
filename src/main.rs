@@ -9,8 +9,8 @@ use std::f64;
 
 const MU: usize = 50; // Number of best solutions to keep
 const H: usize = 5; // History size
-const CC: f64 = 0.05; // Learning rate for covariance matrix
-const CD: f64 = 0.05; // Learning rate for differential weights
+const CC: f64 = 0.1; // Learning rate for covariance matrix
+const CD: f64 = 0.1; // Learning rate for differential weights
 const EPSILON: f64 = 0.1; // Small constant
 
 static mut DIMENSIONS: usize = 3; // Dimensionality of the problem
@@ -19,7 +19,7 @@ static mut MAX_GENERATIONS: usize = 30000; // Max number of generations (will be
 
 fn main() {
     unsafe {
-        DIMENSIONS = 3; // Set your desired dimensions
+        DIMENSIONS = 30; // Set your desired dimensions
         LAMBDA = 4 + (3.0 * (DIMENSIONS as f64).ln()).floor() as usize;
         // MAX_GENERATIONS = 10000 * DIMENSIONS;
         MAX_GENERATIONS = 1400;
@@ -28,8 +28,54 @@ fn main() {
     println!("LAMBDA: {}", unsafe { LAMBDA });
     println!("MAX_GENERATIONS: {}", unsafe { MAX_GENERATIONS });
 
-    let mut des = DES::new();
-    des.run(|x| x.iter().map(|&xi| xi * xi).sum(), "sum_of_squares.png"); // Optimize the sum of squares function
+    // Fitness function 1
+    let mut des1 = DES::new();
+    des1.run(
+        |x| x.iter().map(|&xi| xi * xi).sum(),
+        "sum_of_squares.png"
+    );
+    // Fitness function 2
+    let mut des2 = DES::new();
+    des2.run(
+        |x| x[0] * x[0] + 1e6 * x.iter().skip(1).map(|&xi| xi * xi).sum::<f64>(),
+        "cigar.png"
+    );
+    // Fitness function 3
+    let mut des3 = DES::new();
+    des3.run(
+        |x| 1e6 * x[0] * x[0] + x.iter().skip(1).map(|&xi| xi * xi).sum::<f64>(),
+        "discus.png"
+    );
+    // Fitness function 4
+    let mut des4 = DES::new();
+    des4.run(
+        |x| x.iter().enumerate().map(|(i, &xi)| 10_f64.powf(6.0 * (i as f64 - 1.0) / (x.len() as f64 - 1.0)) * xi * xi).sum::<f64>(),
+        "ellipsoid.png",
+    );
+    // Fitness function 5
+    let mut des5 = DES::new();
+    des5.run(
+        |x| x.iter().enumerate().map(|(i, &xi)| xi.powf(2.0 * (1.0 + 5.0 * (i as f64 - 1.0) / (x.len() as f64 - 1.0)))).sum::<f64>(),
+        "different_powers.png",
+    );
+    // Fitness function 6
+    let mut des6 = DES::new();
+    des6.run(
+        |x| x[0] + 100.0 * x[1..].iter().map(|&xi| xi * xi).sum::<f64>(),
+        "sharp_ridge.png",
+    );
+    // Fitness function 7
+    let mut des7 = DES::new();
+    des7.run(
+        |x| x[0] + 100.0 * (x[1..].iter().map(|&xi| xi * xi).sum::<f64>()).sqrt(),
+        "parabolic_ridge.png",
+    );
+    // Fitness function 8
+    let mut des8 = DES::new();
+    des8.run(
+        |x| (0..x.len() - 1).map(|i| 100.0 * (x[i] * x[i] - x[i+1] * x[i+1]) + (x[i] - 1.0).powi(2)).sum::<f64>(),
+        "Rosenbrock.png",
+    );
 }
 
 struct DES {
