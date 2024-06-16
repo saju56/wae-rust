@@ -319,6 +319,7 @@ version = "0.1.0"
 dependencies = [
  "plotters",
  "rand",
+ "rand_distr",
 ]
 
 [[package]]
@@ -396,6 +397,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
+
+[[package]]
 name = "libredox"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -428,6 +435,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
@@ -573,6 +581,16 @@ checksum = "cc89dffba8377c5ec847d12bb41492bda235dba31a25e8b695cd0fe6589eb8c9"
 dependencies = [
  "getrandom",
  "zerocopy",
+]
+
+[[package]]
+name = "rand_distr"
+version = "0.5.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5732319efe54fec0413619e1bc1d61ccd926909c06c6262992ccce3c492e8d1c"
+dependencies = [
+ "num-traits",
+ "rand",
 ]
 
 [[package]]

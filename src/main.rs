@@ -4,109 +4,118 @@ extern crate plotters;
 use plotters::prelude::*;
 use plotters::style::{Color, RED};
 use rand::distributions::{Distribution, Uniform};
-use rand::Rng;
+use rand::prelude::*;
+use rand_distr::{Normal, Distribution as OtherDistribution};
 use std::f64;
+use rand_distr::num_traits::real::Real;
 
-const MU: usize = 50; // Number of best solutions to keep
-const H: usize = 5; // History size
-const CC: f64 = 0.1; // Learning rate for covariance matrix
-const CD: f64 = 0.1; // Learning rate for differential weights
-const EPSILON: f64 = 0.1; // Small constant
-
+static mut MU: usize = 50; // Number of the best solutions to keep
+static mut H: usize = 5; // History size
+static mut CC: f64 = 0.1; // Learning rate for covariance matrix
+static mut CD: f64 = 0.1; // Learning rate for differential weights
+static mut CE: f64 = 0.1;
+static mut EPSILON: f64 = 1e-6; // Small constant
 static mut DIMENSIONS: usize = 3; // Dimensionality of the problem
 static mut LAMBDA: usize = 7; // Population size (will be updated)
 static mut MAX_GENERATIONS: usize = 30000; // Max number of generations (will be updated)
 
 fn main() {
+    // Parameter initialization as in the Appendix
     unsafe {
-        DIMENSIONS = 30; // Set your desired dimensions
+        DIMENSIONS = 3; // Set your desired dimensions
         LAMBDA = 4 + (3.0 * (DIMENSIONS as f64).ln()).floor() as usize;
         // MAX_GENERATIONS = 10000 * DIMENSIONS;
         MAX_GENERATIONS = 1400;
+        MU = (LAMBDA as f64 / 2.0).floor() as usize;
+        H = 6 + (3.0 * (DIMENSIONS as f64).sqrt()).floor() as usize;
+        CC = 1.0 / (DIMENSIONS as f64).sqrt();
+        CD = MU as f64 / ((MU + 2) as f64);
+        CE = 2.0 / (DIMENSIONS * DIMENSIONS) as f64;
+
+        println!("LAMBDA (Population size): {}", unsafe { LAMBDA });
+        println!("MAX_GENERATIONS: {}", unsafe { MAX_GENERATIONS });
+        println!("MU (No best solutions kept): {}", unsafe { MU });
+        println!("H (History size): {}", unsafe { H });
+        println!("CC (LR for covariance matrix): {}", unsafe { CC });
+        println!("CD (LR for differential weights): {}", unsafe { CD });
+        println!("CE (idk xD): {}", unsafe { CE });
+
+        // Fitness function 1
+        let mut des1 = DES::new();
+        des1.run(
+            |x| x.iter().map(|&xi| xi * xi).sum(),
+            "sum_of_squares.png",
+        );
+        // Fitness function 2
+        let mut des2 = DES::new();
+        des2.run(
+            |x| x[0] * x[0] + 1e6 * x.iter().skip(1).map(|&xi| xi * xi).sum::<f64>(),
+            "cigar.png",
+        );
+        // Fitness function 3
+        let mut des3 = DES::new();
+        des3.run(
+            |x| 1e6 * x[0] * x[0] + x.iter().skip(1).map(|&xi| xi * xi).sum::<f64>(),
+            "discus.png",
+        );
+        // Fitness function 4
+        let mut des4 = DES::new();
+        des4.run(
+            |x| x.iter().enumerate().map(|(i, &xi)| 10_f64.powf(6.0 * (i as f64 - 1.0) / (x.len() as f64 - 1.0)) * xi * xi).sum::<f64>(),
+            "ellipsoid.png",
+        );
+        // Fitness function 5
+        let mut des5 = DES::new();
+        des5.run(
+            |x| x.iter().enumerate().map(|(i, &xi)| xi.powf(2.0 * (1.0 + 5.0 * (i as f64 - 1.0) / (x.len() as f64 - 1.0)))).sum::<f64>(),
+            "different_powers.png",
+        );
+        // Fitness function 6
+        let mut des6 = DES::new();
+        des6.run(
+            |x| x[0] + 100.0 * x[1..].iter().map(|&xi| xi * xi).sum::<f64>(),
+            "sharp_ridge.png",
+        );
+        // Fitness function 7
+        let mut des7 = DES::new();
+        des7.run(
+            |x| x[0] + 100.0 * (x[1..].iter().map(|&xi| xi * xi).sum::<f64>()).sqrt(),
+            "parabolic_ridge.png",
+        );
+        // Fitness function 8
+        let mut des8 = DES::new();
+        des8.run(
+            |x| (0..x.len() - 1).map(|i| 100.0 * (x[i] * x[i] - x[i + 1] * x[i + 1]) + (x[i] - 1.0).powi(2)).sum::<f64>(),
+            "Rosenbrock.png",
+        );
     }
-
-    println!("LAMBDA: {}", unsafe { LAMBDA });
-    println!("MAX_GENERATIONS: {}", unsafe { MAX_GENERATIONS });
-
-    // Fitness function 1
-    let mut des1 = DES::new();
-    des1.run(
-        |x| x.iter().map(|&xi| xi * xi).sum(),
-        "sum_of_squares.png"
-    );
-    // Fitness function 2
-    let mut des2 = DES::new();
-    des2.run(
-        |x| x[0] * x[0] + 1e6 * x.iter().skip(1).map(|&xi| xi * xi).sum::<f64>(),
-        "cigar.png"
-    );
-    // Fitness function 3
-    let mut des3 = DES::new();
-    des3.run(
-        |x| 1e6 * x[0] * x[0] + x.iter().skip(1).map(|&xi| xi * xi).sum::<f64>(),
-        "discus.png"
-    );
-    // Fitness function 4
-    let mut des4 = DES::new();
-    des4.run(
-        |x| x.iter().enumerate().map(|(i, &xi)| 10_f64.powf(6.0 * (i as f64 - 1.0) / (x.len() as f64 - 1.0)) * xi * xi).sum::<f64>(),
-        "ellipsoid.png",
-    );
-    // Fitness function 5
-    let mut des5 = DES::new();
-    des5.run(
-        |x| x.iter().enumerate().map(|(i, &xi)| xi.powf(2.0 * (1.0 + 5.0 * (i as f64 - 1.0) / (x.len() as f64 - 1.0)))).sum::<f64>(),
-        "different_powers.png",
-    );
-    // Fitness function 6
-    let mut des6 = DES::new();
-    des6.run(
-        |x| x[0] + 100.0 * x[1..].iter().map(|&xi| xi * xi).sum::<f64>(),
-        "sharp_ridge.png",
-    );
-    // Fitness function 7
-    let mut des7 = DES::new();
-    des7.run(
-        |x| x[0] + 100.0 * (x[1..].iter().map(|&xi| xi * xi).sum::<f64>()).sqrt(),
-        "parabolic_ridge.png",
-    );
-    // Fitness function 8
-    let mut des8 = DES::new();
-    des8.run(
-        |x| (0..x.len() - 1).map(|i| 100.0 * (x[i] * x[i] - x[i+1] * x[i+1]) + (x[i] - 1.0).powi(2)).sum::<f64>(),
-        "Rosenbrock.png",
-    );
 }
 
 struct DES {
-    population: Vec<Vec<f64>>,
-    centroid: Vec<f64>,
-    rng: rand::rngs::ThreadRng,
+    population_history: Vec<Vec<Vec<f64>>>, // dim: t x LAMBDA x DIMENSIONS // Initial population has values from [-5.0, 5.0]
+    delta_history: Vec<Vec<f64>>, // dim: t x DIMENSIONS // one value per LAMBDA population
+    p_history: Vec<Vec<f64>>, // dim: t x DIMENSIONS // one value per LAMBDA population
+    m: Vec<f64>, // Just the previous m // one value per LAMBDA population
+    rng: ThreadRng,
     uniform: Uniform<f64>,
+    normal: Normal<f64>,
     generation: usize,
 }
 
 impl DES {
-    fn new() -> Self {
-        let dimensions = unsafe { DIMENSIONS };
-        let lambda = unsafe { LAMBDA };
-        let mut rng = rand::thread_rng();
-        let uniform = Uniform::new(0.0, 1.0);
+    pub fn new() -> Self {
+        let rng = thread_rng();
+        let generation = 1;
 
-        let population: Vec<Vec<f64>> = (0..lambda)
-            .map(|_| (0..dimensions).map(|_| uniform.expect("REASON").sample(&mut rng)).collect())
-            .collect();
-
-        let centroid: Vec<f64> = (0..dimensions)
-            .map(|d| population.iter().map(|xi| xi[d]).sum::<f64>() / lambda as f64)
-            .collect();
-
-        Self {
-            population,
-            centroid,
+        DES {
+            population_history: Vec::new(),
+            delta_history: Vec::new(),
+            p_history: Vec::new(),
+            m: vec![0.0; unsafe { DIMENSIONS }],
             rng,
-            uniform: uniform.unwrap(),
-            generation: 1,
+            uniform: Uniform::new(0.0, 1.0).unwrap(),
+            normal: Normal::new(0.0, 1.0).unwrap(),
+            generation,
         }
     }
 
@@ -114,7 +123,7 @@ impl DES {
     where
         F: Fn(&Vec<f64>) -> f64,
     {
-        self.population
+        self.population_history.last().unwrap()
             .iter()
             .map(|individual| fitness_fn(individual))
             .collect()
@@ -124,72 +133,113 @@ impl DES {
         self.generation >= unsafe { MAX_GENERATIONS }
     }
 
-    fn run<F>(&mut self, fitness_fn: F, plot_file: &str)
+    unsafe fn initialize<F>(&mut self, fitness_fn: F)
     where
         F: Fn(&Vec<f64>) -> f64,
     {
+        let mut rng = thread_rng();
+        let mut initial_population: Vec<Vec<f64>> = (0..LAMBDA)
+            .map(|_| (0..DIMENSIONS).map(|_| rng.gen_range(-5.0..5.0)).collect())
+            .collect();
+
+        // Evaluate initial population and sort by fitness
+        let fitness_values: Vec<f64> = initial_population.iter().map(|ind| fitness_fn(ind)).collect();
+        let mut sorted_indices: Vec<usize> = (0..LAMBDA).collect();
+        sorted_indices.sort_by(|&a, &b| fitness_values[a].partial_cmp(&fitness_values[b]).unwrap());
+        initial_population = sorted_indices.into_iter().map(|i| initial_population[i].clone()).collect();
+
+        self.population_history.push(initial_population);
+
+        // Calculate initial m
+        for d in 0..DIMENSIONS {
+            self.m[d] = (0..LAMBDA)
+                .map(|i| self.population_history[0][i][d])
+                .sum::<f64>() / MU as f64;
+        }
+    }
+
+    unsafe fn run<F>(&mut self, fitness_fn: F, plot_file: &str)
+    where
+        F: Fn(&Vec<f64>) -> f64,
+    {
+        // Initialize: stage 1 - stage 4 in the article
+        self.initialize(&fitness_fn);
+
         let mut fitness_values = self.evaluate(&fitness_fn);
         let mut best_fitness_history = vec![];
 
         while !self.stop_condition() {
-            let best_fitness = fitness_values.iter().cloned().fold(f64::INFINITY, f64::min);
-            best_fitness_history.push(best_fitness);
-            println!("Generation {}: Best fitness = {}", self.generation, best_fitness);
+            fitness_values = self.evaluate(&fitness_fn);
+            let best_fitness = fitness_values.first().expect("Var fitness_values cannot be empty");
+            best_fitness_history.push(*best_fitness);
+            println!("Generation {}: Best fitness = {}", self.generation, *best_fitness);
 
-            let old_centroid = self.centroid.clone();
+            let t_idx = self.generation - 1; // Index from t
+            let old_m = self.m.clone();
 
-            self.centroid = (0..unsafe { DIMENSIONS })
-                .map(|d| self.population.iter().take(MU).map(|xi| xi[d]).sum::<f64>() / MU as f64)
-                .collect();
+            // TODO: take min(MU, LAMBDA) in case MU is bigger than population size
+            for d in 0..DIMENSIONS {
+                self.m[d] = (0..MU)
+                    .map(|i| self.population_history[t_idx % MAX_GENERATIONS][i][d])
+                    .sum::<f64>() / MU as f64;
+            }
 
-            let delta: Vec<f64> = self
-                .centroid
-                .iter()
-                .zip(&old_centroid)
-                .map(|(mt, mt_old)| mt - mt_old)
-                .collect();
+            let delta: Vec<f64> = self.m.iter().zip(&old_m).map(|(m_t, m_t_old)| m_t - m_t_old).collect();
+            self.delta_history.push(delta.clone());
 
-            let mut p: Vec<f64>;
+            let mut p = vec![0.0; DIMENSIONS];
             if self.generation == 1 {
                 p = delta.clone();
             } else {
-                let mut old_p = vec![0.0; unsafe { DIMENSIONS }];
-                p = (0..unsafe { DIMENSIONS })
-                    .map(|d| {
-                        (1.0 - CC) * old_p[d]
-                            + (CC * (2.0 - CC) * MU as f64).sqrt() * delta[d]
-                    })
-                    .collect();
+                for d in 0..DIMENSIONS {
+                    p[d] = (1.0 - CC) * self.p_history.last().unwrap()[d] + (CC * (2.0 - CC) * MU as f64).sqrt() * delta[d];
+                }
             }
+            self.p_history.push(p.clone());
 
+            // Loop: stage 13 - stage 21 in the article
             let sqrt_cd_half = (CD / 2.0).sqrt();
             let sqrt_cd = CD.sqrt();
-            let sqrt_cd_times_cc = (CC * CD).sqrt();
+            let sqrt_one_minus_cd = (1.0 - CD).sqrt();
 
-            for i in 0..unsafe { LAMBDA } {
-                let tau_indices = (0..H)
-                    .map(|_| self.rng.gen_range(0..unsafe { LAMBDA }))
-                    .collect::<Vec<_>>();
+            let mut new_population = vec![vec![0.0; DIMENSIONS]; LAMBDA];
+            for i in 0..LAMBDA {
+                let normal = Normal::new(0.0, 1.0).unwrap();
+                let normal_i = Normal::new(0.0, (i as f64).sqrt()).unwrap(); // For N(0,i)
 
-                let mut d_i = vec![0.0; unsafe { DIMENSIONS }];
-                for d in 0..unsafe { DIMENSIONS } {
+                // Because the last pushed X atp is from generation t-1 we start from 0 here
+                let tau_1 = self.rng.gen_range(0..H);
+                let tau_2 = self.rng.gen_range(0..H);
+                let tau_3 = self.rng.gen_range(0..H);
+                let j = self.rng.gen_range(0..MU);
+                let k = self.rng.gen_range(0..MU);
+
+                // Random history index or 0, whichever is greater
+                let history_idx_1 = t_idx.saturating_sub(tau_1);
+                let history_idx_2 = t_idx.saturating_sub(tau_2);
+                let history_idx_3 = t_idx.saturating_sub(tau_3);
+
+                let mut d_i = vec![0.0; DIMENSIONS];
+                for d in 0..DIMENSIONS {
                     let diff = sqrt_cd_half
-                        * (self.population[tau_indices[0] % unsafe { LAMBDA }][d]
-                        - self.population[tau_indices[1] % unsafe { LAMBDA }][d])
-                        + sqrt_cd * delta[tau_indices[2] % delta.len()]  // Ensure the index is within bounds
-                        * self.uniform.sample(&mut self.rng)
-                        + sqrt_cd_times_cc * p[tau_indices[2] % p.len()]  // Ensure the index is within bounds
-                        * self.uniform.sample(&mut self.rng)
-                        + EPSILON
-                        * (1.0 - CC).powi(self.generation as i32 / 2)
-                        * self.uniform.sample(&mut self.rng);
-                    d_i[d] = self.centroid[d] + diff;
+                        * (self.population_history[history_idx_1][j][d]
+                        - self.population_history[history_idx_1][k][d])
+                        + sqrt_cd * self.delta_history[history_idx_2][d] * normal.sample(&mut thread_rng())
+                        + sqrt_one_minus_cd * self.p_history[history_idx_3][d] * normal.sample(&mut thread_rng())
+                        + EPSILON * (1.0 - CE).powi(self.generation as i32 / 2) * normal_i.sample(&mut thread_rng());
+                    d_i[d] = self.m[d] + diff;
                 }
 
-                self.population[i] = d_i;
+                new_population[i] = d_i;
             }
 
-            fitness_values = self.evaluate(&fitness_fn);
+            // Evaluate new population and sort by fitness
+            fitness_values = new_population.iter().map(|ind| fitness_fn(ind)).collect();
+            let mut sorted_indices: Vec<usize> = (0..LAMBDA).collect();
+            sorted_indices.sort_by(|&a, &b| fitness_values[a].partial_cmp(&fitness_values[b]).unwrap());
+            new_population = sorted_indices.into_iter().map(|i| new_population[i].clone()).collect();
+
+            self.population_history.push(new_population);
             self.generation += 1;
         }
 
@@ -199,7 +249,7 @@ impl DES {
 
     fn plot_fitness(&self, fitness_values: Vec<f64>, plot_file: &str) {
         // Determine the maximum fitness value for setting the y-axis range
-        let max_fitness = *fitness_values.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        *fitness_values.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
 
         // Initialize the plot
         let root_area = BitMapBackend::new(plot_file, (1024, 768)).into_drawing_area();
