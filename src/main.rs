@@ -3,11 +3,9 @@ extern crate plotters;
 
 use plotters::prelude::*;
 use plotters::style::{Color, RED};
-use rand::distributions::{Distribution, Uniform};
 use rand::prelude::*;
 use rand_distr::{Normal, Distribution as OtherDistribution};
 use std::f64;
-use rand_distr::num_traits::real::Real;
 
 static mut MU: usize = 50; // Number of the best solutions to keep
 static mut H: usize = 5; // History size
@@ -22,23 +20,22 @@ static mut MAX_GENERATIONS: usize = 30000; // Max number of generations (will be
 fn main() {
     // Parameter initialization as in the Appendix
     unsafe {
-        DIMENSIONS = 3; // Set your desired dimensions
+        DIMENSIONS = 30; // Set your desired dimensions
         LAMBDA = 4 + (3.0 * (DIMENSIONS as f64).ln()).floor() as usize;
-        // MAX_GENERATIONS = 10000 * DIMENSIONS;
-        MAX_GENERATIONS = 1400;
+        MAX_GENERATIONS = 10000 * DIMENSIONS;
         MU = (LAMBDA as f64 / 2.0).floor() as usize;
         H = 6 + (3.0 * (DIMENSIONS as f64).sqrt()).floor() as usize;
         CC = 1.0 / (DIMENSIONS as f64).sqrt();
         CD = MU as f64 / ((MU + 2) as f64);
         CE = 2.0 / (DIMENSIONS * DIMENSIONS) as f64;
 
-        println!("LAMBDA (Population size): {}", unsafe { LAMBDA });
-        println!("MAX_GENERATIONS: {}", unsafe { MAX_GENERATIONS });
-        println!("MU (No best solutions kept): {}", unsafe { MU });
-        println!("H (History size): {}", unsafe { H });
-        println!("CC (LR for covariance matrix): {}", unsafe { CC });
-        println!("CD (LR for differential weights): {}", unsafe { CD });
-        println!("CE (idk xD): {}", unsafe { CE });
+        println!("LAMBDA (Population size): {}", LAMBDA);
+        println!("MAX_GENERATIONS: {}", MAX_GENERATIONS);
+        println!("MU (No best solutions kept): {}", MU);
+        println!("H (History size): {}", H);
+        println!("CC (LR for covariance matrix): {}", CC);
+        println!("CD (LR for differential weights): {}", CD);
+        println!("CE (idk xD): {}", CE);
 
         // Fitness function 1
         let mut des1 = DES::new();
@@ -61,31 +58,32 @@ fn main() {
         // Fitness function 4
         let mut des4 = DES::new();
         des4.run(
-            |x| x.iter().enumerate().map(|(i, &xi)| 10_f64.powf(6.0 * (i as f64 - 1.0) / (x.len() as f64 - 1.0)) * xi * xi).sum::<f64>(),
+            |x| x.iter().enumerate().map(|(i, &xi)| 10_f64.powf(6.0 * (i as f64) / (x.len() as f64 - 1.0)) * xi * xi).sum::<f64>(),
             "ellipsoid.png",
         );
         // Fitness function 5
         let mut des5 = DES::new();
         des5.run(
-            |x| x.iter().enumerate().map(|(i, &xi)| xi.powf(2.0 * (1.0 + 5.0 * (i as f64 - 1.0) / (x.len() as f64 - 1.0)))).sum::<f64>(),
+            |x| x.iter().enumerate().map(|(i, &xi)| xi.abs().powf(2.0 * (1.0 + 5.0 * (i as f64) / (x.len() as f64 - 1.0)))).sum::<f64>(),
             "different_powers.png",
         );
+        // Ridge functions:
         // Fitness function 6
         let mut des6 = DES::new();
         des6.run(
-            |x| x[0] + 100.0 * x[1..].iter().map(|&xi| xi * xi).sum::<f64>(),
+            |x| (x[0] + 100.0 * x[1..].iter().map(|&xi| xi * xi).sum::<f64>()).abs(),
             "sharp_ridge.png",
         );
         // Fitness function 7
         let mut des7 = DES::new();
         des7.run(
-            |x| x[0] + 100.0 * (x[1..].iter().map(|&xi| xi * xi).sum::<f64>()).sqrt(),
+            |x| (x[0] + 100.0 * x[1..].iter().map(|&xi| xi * xi).sum::<f64>().sqrt()).abs(),
             "parabolic_ridge.png",
         );
         // Fitness function 8
         let mut des8 = DES::new();
         des8.run(
-            |x| (0..x.len() - 1).map(|i| 100.0 * (x[i] * x[i] - x[i + 1] * x[i + 1]) + (x[i] - 1.0).powi(2)).sum::<f64>(),
+            |x| (0..x.len() - 1).map(|i| 100.0 * (x[i] * x[i] - x[i + 1] * x[i + 1]) + (x[i] - 1.0).powi(2)).sum::<f64>().abs(),
             "Rosenbrock.png",
         );
     }
@@ -97,8 +95,6 @@ struct DES {
     p_history: Vec<Vec<f64>>, // dim: t x DIMENSIONS // one value per LAMBDA population
     m: Vec<f64>, // Just the previous m // one value per LAMBDA population
     rng: ThreadRng,
-    uniform: Uniform<f64>,
-    normal: Normal<f64>,
     generation: usize,
 }
 
@@ -113,20 +109,8 @@ impl DES {
             p_history: Vec::new(),
             m: vec![0.0; unsafe { DIMENSIONS }],
             rng,
-            uniform: Uniform::new(0.0, 1.0).unwrap(),
-            normal: Normal::new(0.0, 1.0).unwrap(),
             generation,
         }
-    }
-
-    fn evaluate<F>(&self, fitness_fn: F) -> Vec<f64>
-    where
-        F: Fn(&Vec<f64>) -> f64,
-    {
-        self.population_history.last().unwrap()
-            .iter()
-            .map(|individual| fitness_fn(individual))
-            .collect()
     }
 
     fn stop_condition(&self) -> bool {
@@ -165,14 +149,12 @@ impl DES {
         // Initialize: stage 1 - stage 4 in the article
         self.initialize(&fitness_fn);
 
-        let mut fitness_values = self.evaluate(&fitness_fn);
         let mut best_fitness_history = vec![];
 
         while !self.stop_condition() {
-            fitness_values = self.evaluate(&fitness_fn);
-            let best_fitness = fitness_values.first().expect("Var fitness_values cannot be empty");
-            best_fitness_history.push(*best_fitness);
-            println!("Generation {}: Best fitness = {}", self.generation, *best_fitness);
+            let best_fitness = fitness_fn(self.population_history.last().unwrap().first().unwrap());
+            best_fitness_history.push(best_fitness);
+            // println!("Generation {}: Best fitness = {}", self.generation, *best_fitness);
 
             let t_idx = self.generation - 1; // Index from t
             let old_m = self.m.clone();
@@ -234,7 +216,7 @@ impl DES {
             }
 
             // Evaluate new population and sort by fitness
-            fitness_values = new_population.iter().map(|ind| fitness_fn(ind)).collect();
+            let fitness_values: Vec<f64> = new_population.iter().map(|ind| fitness_fn(ind)).collect();
             let mut sorted_indices: Vec<usize> = (0..LAMBDA).collect();
             sorted_indices.sort_by(|&a, &b| fitness_values[a].partial_cmp(&fitness_values[b]).unwrap());
             new_population = sorted_indices.into_iter().map(|i| new_population[i].clone()).collect();
@@ -244,13 +226,20 @@ impl DES {
         }
 
         // Plot the fitness values
-        self.plot_fitness(best_fitness_history, plot_file);
+        self.plot_fitness(best_fitness_history.clone(), plot_file);
+
+
+        // Print the last population (the best member) and fitness value
+        println!("Function {}", &plot_file[..plot_file.rfind('.').unwrap_or(plot_file.len())]);
+        println!("Best fitness = {}", best_fitness_history.last().unwrap());
+        let last_x: &Vec<f64> = self.population_history.last().unwrap().first().unwrap();
+        for value in last_x.iter() {
+            println!("{:.4}", value); // Printing each value with 4 decimal places for clarity
+        }
+        println!();
     }
 
     fn plot_fitness(&self, fitness_values: Vec<f64>, plot_file: &str) {
-        // Determine the maximum fitness value for setting the y-axis range
-        *fitness_values.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-
         // Initialize the plot
         let root_area = BitMapBackend::new(plot_file, (1024, 768)).into_drawing_area();
         root_area.fill(&WHITE).unwrap();
