@@ -7,3 +7,8 @@ edition = "2021"
 rand = "0.9.0-alpha.1"
 plotters = "0.3.6"
 rand_distr = "0.5.0-alpha.1"
+pyo3 = { version = "0.21.2" }
+
+
+[features]
+extension-module = ["pyo3/extension-module"]
