@@ -2,6 +2,7 @@
 library(microbenchmark)
 library(Rcpp)
 library(ggplot2)
+library(cecs)
 
 # Set global parameters
 MU <- 50
@@ -10,7 +11,7 @@ CC <- 0.1
 CD <- 0.1
 CE <- 0.1
 EPSILON <- 1e-6
-DIMENSIONS <- 3
+DIMENSIONS <- 10 # Must be dimensions from [10, 30, 50, 100] for cec to work
 LAMBDA <- 4 + floor(3.0 * log(DIMENSIONS))
 MAX_GENERATIONS <- 1000 * DIMENSIONS
 MU <- floor(LAMBDA / 2)
@@ -28,8 +29,39 @@ fitness_functions <- list(
   different_powers = function(x) sum(abs(x)^(2 + 5 * (0:(length(x) - 1)) / (length(x) - 1))),
   sharp_ridge = function(x) abs(x[1] + 100 * sum(x[-1]^2)),
   parabolic_ridge = function(x) abs(x[1] + 100 * sqrt(sum(x[-1]^2))),
-  rosenbrock = function(x) sum(100 * (x[-length(x)]^2 - x[-1])^2 + (x[-length(x)] - 1)^2)
+  rosenbrock = function(x) sum(100 * (x[-length(x)]^2 - x[-1])^2 + (x[-length(x)] - 1)^2),
+  cec2017_1 = function(x) cec2017(1, x),
+  cec2017_2 = function(x) cec2017(2, x),
+  cec2017_3 = function(x) cec2017(3, x),
+  cec2017_4 = function(x) cec2017(4, x),
+  cec2017_5 = function(x) cec2017(5, x),
+  cec2017_6 = function(x) cec2017(6, x),
+  cec2017_7 = function(x) cec2017(7, x),
+  cec2017_8 = function(x) cec2017(8, x),
+  cec2017_9 = function(x) cec2017(9, x),
+  cec2017_10 = function(x) cec2017(10, x),
+  cec2017_11 = function(x) cec2017(11, x),
+  cec2017_12 = function(x) cec2017(12, x),
+  cec2017_13 = function(x) cec2017(13, x),
+  cec2017_14 = function(x) cec2017(14, x),
+  cec2017_15 = function(x) cec2017(15, x),
+  cec2017_16 = function(x) cec2017(16, x),
+  cec2017_17 = function(x) cec2017(17, x),
+  cec2017_18 = function(x) cec2017(18, x),
+  cec2017_19 = function(x) cec2017(19, x),
+  cec2017_20 = function(x) cec2017(20, x),
+  cec2017_21 = function(x) cec2017(21, x),
+  cec2017_22 = function(x) cec2017(22, x),
+  cec2017_23 = function(x) cec2017(23, x),
+  cec2017_24 = function(x) cec2017(24, x),
+  cec2017_25 = function(x) cec2017(25, x),
+  cec2017_26 = function(x) cec2017(26, x),
+  cec2017_27 = function(x) cec2017(27, x),
+  cec2017_28 = function(x) cec2017(28, x),
+  cec2017_29 = function(x) cec2017(29, x),
+  cec2017_30 = function(x) cec2017(30, x)
 )
+
 
 # Define Differential Evolution Strategy (DES) in R
 DES <- R6::R6Class(

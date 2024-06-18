@@ -30,9 +30,9 @@ fn main() {
 
 fn run_for_art() {
     unsafe {
-        DIMENSIONS = 10; // Set your desired dimensions
+        DIMENSIONS = 3; // Set your desired dimensions
         LAMBDA = 4 + (3.0 * (DIMENSIONS as f64).ln()).floor() as usize;
-        MAX_GENERATIONS = 100 * DIMENSIONS;
+        MAX_GENERATIONS = 10000 * DIMENSIONS;
         MU = (LAMBDA as f64 / 2.0).floor() as usize;
         H = 6 + (3.0 * (DIMENSIONS as f64).sqrt()).floor() as usize;
         CC = 1.0 / (DIMENSIONS as f64).sqrt();
