@@ -24,8 +24,8 @@ static mut MAX_GENERATIONS: usize = 30000; // Max number of generations (will be
 
 fn main() {
     // Parameter initialization as in the Appendix
-    run_for_art();
-    //run_for_cec();
+    //run_for_art();
+    run_for_cec();
 }
 
 fn run_for_art() {
@@ -103,7 +103,7 @@ fn run_for_cec() {
     unsafe {
         DIMENSIONS = 10; // Set your desired dimensions from [10, 30, 50, 100]
         LAMBDA = 4 + (3.0 * (DIMENSIONS as f64).ln()).floor() as usize;
-        MAX_GENERATIONS = 100 * DIMENSIONS;
+        MAX_GENERATIONS = 1000 * DIMENSIONS;
         MU = (LAMBDA as f64 / 2.0).floor() as usize;
         H = 6 + (3.0 * (DIMENSIONS as f64).sqrt()).floor() as usize;
         CC = 1.0 / (DIMENSIONS as f64).sqrt();
@@ -119,10 +119,20 @@ fn run_for_cec() {
         println!("CE (idk xD): {}", CE);
 
         // Fitness function 1
-        let mut des1 = DES::new();
-        des1.run_cec(
-            "sum_of_squares.png", "f1"
-        );
+        for i in 1..=30 {
+            if i == 2 || i == 17 || i == 20 || i == 29 {
+                // Python cec2017 tries to divide by 0, not our fault
+                continue;
+            }
+            let mut des = DES::new();
+            let function_name = format!("f{}", i);
+            let plot_filename = format!("cec2017_f{}.png", i);
+        
+            des.run_cec(
+                &plot_filename,
+                &function_name
+            );
+        }
     }
 }
 
@@ -383,7 +393,7 @@ impl DES {
             let fitness_values = self.evaluate(function_name);
             let best_fitness = fitness_values.first().expect("Var fitness_values cannot be empty");
             best_fitness_history.push(*best_fitness);
-            println!("Generation {}: Best fitness = {}", self.generation, *best_fitness);
+            //println!("Generation {}: Best fitness = {}", self.generation, *best_fitness);
 
             let t_idx = self.generation - 1; // Index from t
             let old_m = self.m.clone();

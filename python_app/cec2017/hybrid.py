@@ -2,8 +2,8 @@
 # Author: Duncan Tilley
 # Hybrid function definitions, f11 to f20
 
-from basic import *
-from transforms import *
+import basic
+import transforms
 
 import numpy as np
 
