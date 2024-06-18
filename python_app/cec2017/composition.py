@@ -2,9 +2,9 @@
 # Author: Duncan Tilley
 # Composition function definitions, f21 to f30
 
-from basic import *
-from transforms import *
-from hybrid import *
+import basic
+import transforms
+import hybrid
 
 import numpy as np
 
