@@ -13,7 +13,7 @@ CE <- 0.1
 EPSILON <- 1e-6
 DIMENSIONS <- 10 # Must be dimensions from [10, 30, 50, 100] for cec to work
 LAMBDA <- 4 + floor(3.0 * log(DIMENSIONS))
-MAX_GENERATIONS <- 1000 * DIMENSIONS
+MAX_GENERATIONS <- 100 * DIMENSIONS
 MU <- floor(LAMBDA / 2)
 H <- 6 + floor(3.0 * sqrt(DIMENSIONS))
 CC <- 1.0 / sqrt(DIMENSIONS)
