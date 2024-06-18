@@ -23,22 +23,23 @@ static mut LAMBDA: usize = 7; // Population size (will be updated)
 static mut MAX_GENERATIONS: usize = 30000; // Max number of generations (will be updated)
 
 fn main() {
-    // Parameter initialization as in the Appendix
     run_for_art();
     //run_for_cec();
 }
 
 fn run_for_art() {
     unsafe {
-        DIMENSIONS = 10; // Set your desired dimensions
+        let seed = 42; // Example seed value
+        DIMENSIONS = 30; // Set your desired dimensions
         LAMBDA = 4 + (3.0 * (DIMENSIONS as f64).ln()).floor() as usize;
-        MAX_GENERATIONS = 100 * DIMENSIONS;
+        MAX_GENERATIONS = 10000;
         MU = (LAMBDA as f64 / 2.0).floor() as usize;
         H = 6 + (3.0 * (DIMENSIONS as f64).sqrt()).floor() as usize;
         CC = 1.0 / (DIMENSIONS as f64).sqrt();
         CD = MU as f64 / ((MU + 2) as f64);
         CE = 2.0 / (DIMENSIONS * DIMENSIONS) as f64;
 
+        println!("Using seed: {}", seed);
         println!("LAMBDA (Population size): {}", LAMBDA);
         println!("MAX_GENERATIONS: {}", MAX_GENERATIONS);
         println!("MU (No best solutions kept): {}", MU);
@@ -48,50 +49,50 @@ fn run_for_art() {
         println!("CE (idk xD): {}", CE);
 
         // Fitness function 1
-        let mut des1 = DES::new();
+        let mut des1 = DES::new(seed);
         des1.run(
             |x| x.iter().map(|&xi| xi * xi).sum(),
             "sum_of_squares.png",
         );
         // Fitness function 2
-        let mut des2 = DES::new();
+        let mut des2 = DES::new(seed);
         des2.run(
             |x| x[0] * x[0] + 1e6 * x.iter().skip(1).map(|&xi| xi * xi).sum::<f64>(),
             "cigar.png",
         );
         // Fitness function 3
-        let mut des3 = DES::new();
+        let mut des3 = DES::new(seed);
         des3.run(
             |x| 1e6 * x[0] * x[0] + x.iter().skip(1).map(|&xi| xi * xi).sum::<f64>(),
             "discus.png",
         );
         // Fitness function 4
-        let mut des4 = DES::new();
+        let mut des4 = DES::new(seed);
         des4.run(
             |x| x.iter().enumerate().map(|(i, &xi)| 10_f64.powf(6.0 * (i as f64) / (x.len() as f64 - 1.0)) * xi * xi).sum::<f64>(),
             "ellipsoid.png",
         );
         // Fitness function 5
-        let mut des5 = DES::new();
+        let mut des5 = DES::new(seed);
         des5.run(
             |x| x.iter().enumerate().map(|(i, &xi)| xi.abs().powf(2.0 * (1.0 + 5.0 * (i as f64) / (x.len() as f64 - 1.0)))).sum::<f64>(),
             "different_powers.png",
         );
         // Ridge functions:
         // Fitness function 6
-        let mut des6 = DES::new();
+        let mut des6 = DES::new(seed);
         des6.run(
             |x| (x[0] + 100.0 * x[1..].iter().map(|&xi| xi * xi).sum::<f64>()).abs(),
             "sharp_ridge.png",
         );
         // Fitness function 7
-        let mut des7 = DES::new();
+        let mut des7 = DES::new(seed);
         des7.run(
             |x| (x[0] + 100.0 * x[1..].iter().map(|&xi| xi * xi).sum::<f64>().sqrt()).abs(),
             "parabolic_ridge.png",
         );
         // Fitness function 8
-        let mut des8 = DES::new();
+        let mut des8 = DES::new(seed);
         des8.run(
             |x| (0..x.len() - 1).map(|i| 100.0 * (x[i] * x[i] - x[i + 1] * x[i + 1]) + (x[i] - 1.0).powi(2)).sum::<f64>().abs(),
             "Rosenbrock.png",
@@ -101,6 +102,7 @@ fn run_for_art() {
 
 fn run_for_cec() {
     unsafe {
+        let seed = 42; // Example seed value
         DIMENSIONS = 10; // Set your desired dimensions from [10, 30, 50, 100]
         LAMBDA = 4 + (3.0 * (DIMENSIONS as f64).ln()).floor() as usize;
         MAX_GENERATIONS = 100 * DIMENSIONS;
@@ -110,6 +112,7 @@ fn run_for_cec() {
         CD = MU as f64 / ((MU + 2) as f64);
         CE = 2.0 / (DIMENSIONS * DIMENSIONS) as f64;
 
+        println!("Using seed: {}", seed);
         println!("LAMBDA (Population size): {}", LAMBDA);
         println!("MAX_GENERATIONS: {}", MAX_GENERATIONS);
         println!("MU (No best solutions kept): {}", MU);
@@ -119,7 +122,7 @@ fn run_for_cec() {
         println!("CE (idk xD): {}", CE);
 
         // Fitness function 1
-        let mut des1 = DES::new();
+        let mut des1 = DES::new(seed);
         des1.run_cec(
             "sum_of_squares.png", "f1"
         );
@@ -189,15 +192,15 @@ struct DES {
     delta_history: Vec<Vec<f64>>, // dim: t x DIMENSIONS // one value per LAMBDA population
     p_history: Vec<Vec<f64>>, // dim: t x DIMENSIONS // one value per LAMBDA population
     m: Vec<f64>, // Just the previous m // one value per LAMBDA population
-    rng: ThreadRng,
+    rng: StdRng,
     generation: usize,
     start_inst: Instant,
     off_timer: Duration
 }
 
 impl DES {
-    pub fn new() -> Self {
-        let rng = thread_rng();
+    pub fn new(seed: u64) -> Self {
+        let rng = StdRng::seed_from_u64(seed);
         let generation = 1;
         let start_inst = Instant::now();
         DES {
@@ -388,7 +391,6 @@ impl DES {
             let t_idx = self.generation - 1; // Index from t
             let old_m = self.m.clone();
 
-            // TODO: take min(MU, LAMBDA) in case MU is bigger than population size
             for d in 0..DIMENSIONS {
                 self.m[d] = (0..MU)
                     .map(|i| self.population_history[t_idx % MAX_GENERATIONS][i][d])
@@ -476,28 +478,33 @@ impl DES {
     }
 
     fn plot_fitness(&self, fitness_values: Vec<f64>, plot_file: &str) {
+        let function_name = &plot_file[..plot_file.rfind('.').unwrap_or(plot_file.len())]
+            .replace('_', " ");
+
         // Initialize the plot
         let root_area = BitMapBackend::new(plot_file, (1024, 768)).into_drawing_area();
         root_area.fill(&WHITE).unwrap();
 
         // Create the chart with logarithmic scale on the y-axis
         let mut chart = ChartBuilder::on(&root_area)
-            .caption("Fitness over Generations", ("sans-serif", 50).into_font())
+            //.caption("Fitness over Generations", ("sans-serif", 50).into_font())
+            .caption(" ", ("sans-serif", 20).into_font())
             .margin(10)
-            .x_label_area_size(50)
-            .y_label_area_size(80)
+            .x_label_area_size(80)
+            .y_label_area_size(100)
             .build_cartesian_2d(
                 0..fitness_values.len(), // X-axis range from 0 to number of fitness values
-                (1e-10..1e6).log_scale(), // Y-axis range with logarithmic scale // max_fitness instead of 1e6
+                (1e-10..1e6).log_scale(), // Y-axis range with logarithmic scale
             )
             .unwrap();
 
         // Configure the mesh and axis labels
         chart
             .configure_mesh()
-            .y_desc("Fitness (log scale)")
+            .y_desc("Fitness")
             .x_desc("Generation")
             .y_label_formatter(&|y| format!("{:.0e}", y))
+            .label_style(("sans-serif", 35).into_font()) // Larger font for axis labels
             .draw()
             .unwrap();
 
@@ -523,11 +530,24 @@ impl DES {
                 )
             });
 
+        // Estimate text width to center
+        let estimated_char_width = 14; // Estimated pixel width per character
+        let text_width = function_name.len() * estimated_char_width;
+        let center_position_x = 512 - (text_width / 2); // Adjust X position to center the text
+
+        // Add text with the plot file name centered at the top of the graph
+        root_area.draw_text(
+            &format!("{}", function_name),
+            &TextStyle::from(("sans-serif", 45).into_font()).color(&BLACK),
+            (center_position_x as i32, 100)
+        ).unwrap();
+
         // Configure series labels and draw the legend
         chart
             .configure_series_labels()
             .background_style(&WHITE.mix(0.8))
             .border_style(&BLACK)
+            .label_font(("sans-serif", 25))
             .draw()
             .unwrap();
     }
