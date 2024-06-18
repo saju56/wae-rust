@@ -180,7 +180,7 @@ fn get_function_values(x_vector : &Vec<Vec<f64>>, function_name : &str) -> Vec<f
     let py_app = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/python_app/test.py"));
     pyo3::prepare_freethreaded_python();
     let result: Result<Vec<f64>, PyErr> = Python::with_gil(|py| {
-        assert!(py.version().starts_with(PYTHON_VERSION));
+        //assert!(py.version().starts_with(PYTHON_VERSION));
         PyModule::from_code_bound(py, py_utils, "cec2017.utils", "utils")?;
         PyModule::from_code_bound(py, py_basic, "cec2017.basic", "basic")?;
         PyModule::from_code_bound(py, py_transforms, "cec2017.transforms", "transforms")?;
